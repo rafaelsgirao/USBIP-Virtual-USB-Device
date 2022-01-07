@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS= -Wall -DLINUX 
-PROGS= hid-mouse hid-keyboard cdc-acm
+PROGS= hid-mouse hid-keyboard cdc-acm hso
 
 all:	${PROGS}
 
@@ -15,5 +15,10 @@ hid-keyboard:	usbip.c hid-keyboard.c
 cdc-acm:	usbip.c cdc-acm.c 
 		${CC} ${CFLAGS} usbip.c -c 
 		${CC} ${CFLAGS} usbip.o cdc-acm.c -o cdc-acm
+
+hso:	usbip.c hso.c
+		${CC} ${CFLAGS} usbip.c -c
+		${CC} ${CFLAGS} usbip.o hso.c -o hso
+
 clean:
 		rm -f ${PROGS} core core.* *.o temp.* *.out typescript*
