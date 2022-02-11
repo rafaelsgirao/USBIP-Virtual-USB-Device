@@ -41,7 +41,12 @@
 #include<string.h>
 #include<unistd.h>
 //defines
+#ifdef CONFIGURABLE_SERVER_USBIP_TCP_PORT
+extern uint16_t server_usbip_tcp_port;
+#define TCP_SERV_PORT server_usbip_tcp_port
+#else
 #define        TCP_SERV_PORT        3240
+#endif
 typedef struct sockaddr sockaddr;
 
 
@@ -438,6 +443,11 @@ extern const char * configuration;
 extern const USB_INTERFACE_DESCRIPTOR *interfaces[];
 #endif
 extern const unsigned char *strings[];
+#ifdef CONFIGURABLE_USB_BUS_PORT
+extern char usb_bus_port[];
+extern char usb_bus_port_path[];
+extern int usb_bus;
+#endif
 
 void handle_data(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl);
 void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USBIP_RET_SUBMIT *usb_req);

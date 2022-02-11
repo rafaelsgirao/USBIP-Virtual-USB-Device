@@ -38,6 +38,7 @@
 #include <netinet/tcp.h>
 #include <pthread.h>
 #include <getopt.h>
+#include <dirent.h>
 
 #include "usbip.h"
 
@@ -282,21 +283,21 @@ const unsigned char string_2[] = { //Product
                 'N', 0x00, //
                 };
 
-const unsigned char string_3[] = { //Serial Number
+unsigned char string_3[] = { //Serial Number
                 0x1a, 
                 USB_DESCRIPTOR_STRING, //
-                '8', 0x00, //
-                '8', 0x00, //
                 '0', 0x00, //
                 '0', 0x00, //
-                '6', 0x00, //
-                '6', 0x00, //
-                '9', 0x00, //
-                '9', 0x00, //
-                '5', 0x00, //
-                'B', 0x00, //
-                'E', 0x00, //
-                '9', 0x00, //
+                '0', 0x00, //
+                '0', 0x00, //
+                '0', 0x00, //
+                '0', 0x00, //
+                '0', 0x00, //
+                '0', 0x00, //
+                '0', 0x00, //
+                '0', 0x00, //
+                '0', 0x00, //
+                '0', 0x00, //
                 };
 
 const unsigned char string_4[] = {
@@ -371,14 +372,20 @@ static int rx_data_send_size_array[RX_DATA_SEND_SEQ_ARRAY_SIZE] = {0};
 static pthread_mutex_t rx_data_send_mutex;
 static int rx_data_ifidx = 0;
 #undef DEBUG_RX_DATA
-#define DEFAULT_IF "enp1s0"
-static char ifName[IFNAMSIZ] = {0};
-#define MAX_USB_BUS_DEVICE_SIZE 6
-#define DEFAULT_USB_BUS_DEVICE "1-1"
-static char usbBusDevice[MAX_USB_BUS_DEVICE_SIZE] = {0};
+
+unsigned short server_usbip_tcp_port = 3240;
+#define MAX_VHCI_HCD_DEVICES 128
+#define MAX_VHCI_HCD_USB_DEVICES 128
+#define USB_BUS_PORT_PATH "/sys/devices/platform/vhci_hcd.%d/usb%d/%s"
+#define MAX_USB_BUS_PORT_SIZE 10
+char usb_bus_port[MAX_USB_BUS_PORT_SIZE] = "3-0:1.0";
+#define MAX_USB_BUS_PORT_PATH_SIZE 256
+char usb_bus_port_path[MAX_USB_BUS_PORT_PATH_SIZE] = {0};
+int usb_bus = 3;
+static char usb_ethernet_address[] = "88:00:66:99:5b:e9";
 #define MAX_MANUFACTURER_SIZE 32
-#define DEFAULT_MANUFACTURER "Temium"
-static char manufacturer[MAX_MANUFACTURER_SIZE] = {0};
+static char manufacturer[MAX_MANUFACTURER_SIZE] = "Temium";
+static char if_name[IFNAMSIZ] = "enp1s0";
 
 static uint32_t net_checksum_add(int len, uint8_t *buf)
 {
@@ -494,7 +501,7 @@ static int configure_tx_data()
 
     /* Get the index of the interface to send on */
     memset(&if_idx, 0, sizeof(struct ifreq));
-    strncpy(if_idx.ifr_name, ifName, IFNAMSIZ-1);
+    strncpy(if_idx.ifr_name, if_name, IFNAMSIZ-1);
     if (ioctl(tx_data_sockfd, SIOCGIFINDEX, &if_idx) < 0)
     {
         perror("SIOCGIFINDEX");
@@ -568,7 +575,7 @@ static int configure_rx_data()
     }
 
     /* Set interface to promiscuous mode */
-    strncpy(ifopts.ifr_name, ifName, IFNAMSIZ-1);
+    strncpy(ifopts.ifr_name, if_name, IFNAMSIZ-1);
     ioctl(rx_data_sockfd, SIOCGIFFLAGS, &ifopts);
     ifopts.ifr_flags |= IFF_PROMISC;
     if (ioctl(rx_data_sockfd, SIOCSIFFLAGS, &ifopts) < 0)
@@ -587,7 +594,7 @@ static int configure_rx_data()
 
     /* Bind to device */
     memset(&if_idx, 0, sizeof(struct ifreq));
-    strncpy(if_idx.ifr_name, ifName, IFNAMSIZ-1);
+    strncpy(if_idx.ifr_name, if_name, IFNAMSIZ-1);
     if (ioctl(rx_data_sockfd, SIOCGIFINDEX, &if_idx) < 0)
     {
         perror("SIOCGIFINDEX");
@@ -603,14 +610,6 @@ static int configure_rx_data()
         close(rx_data_sockfd);
         exit(-2);
     }
-
-    /* Get interface MAC address to filter */
-    mac_addr[0] = (strtol((char*)&string_3[2], NULL, 16) << 4) + strtol((char*)&string_3[4], NULL, 16);
-    mac_addr[1] = (strtol((char*)&string_3[6], NULL, 16) << 4) + strtol((char*)&string_3[8], NULL, 16);
-    mac_addr[2] = (strtol((char*)&string_3[10], NULL, 16) << 4) + strtol((char*)&string_3[12], NULL, 16);
-    mac_addr[3] = (strtol((char*)&string_3[14], NULL, 16) << 4) + strtol((char*)&string_3[16], NULL, 16);
-    mac_addr[4] = (strtol((char*)&string_3[18], NULL, 16) << 4) + strtol((char*)&string_3[20], NULL, 16);
-    mac_addr[5] = (strtol((char*)&string_3[22], NULL, 16) << 4) + strtol((char*)&string_3[24], NULL, 16);
 
     return 0;
 }
@@ -756,24 +755,68 @@ void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USB
     }
 }
 
-/* Program options
- */
-static const char* const pcShortOptions = "hi:";
+static void configure_usb_bus_port(void)
+{
+    int i,j;
+    DIR *dirptr;
+
+    for(i = 0; i < MAX_VHCI_HCD_DEVICES; i++)
+    {
+        for(j = 0 ; j < MAX_VHCI_HCD_USB_DEVICES; j++)
+        {
+            snprintf(usb_bus_port_path, MAX_USB_BUS_PORT_PATH_SIZE - 1, USB_BUS_PORT_PATH, i, j, usb_bus_port);
+            if((dirptr = opendir(usb_bus_port_path))) {
+                closedir(dirptr);
+                sscanf(usb_bus_port,"%d-", &usb_bus);
+                return;
+            }
+        }
+    }
+    printf("not found\n");
+    exit(-3);
+}
+
+static void configure_usb_ethernet_address(void)
+{
+    /* Get interface MAC address to filter */
+    sscanf(usb_ethernet_address, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", 
+        &mac_addr[0], &mac_addr[1], &mac_addr[2], &mac_addr[3], &mac_addr[4], &mac_addr[5]);
+
+    /* Configure string for usbip string */
+    string_3[2] = usb_ethernet_address[0];
+    string_3[4] = usb_ethernet_address[1];
+    string_3[6] = usb_ethernet_address[3];
+    string_3[8] = usb_ethernet_address[4];
+    string_3[10] = usb_ethernet_address[6];
+    string_3[12] = usb_ethernet_address[7];
+    string_3[14] = usb_ethernet_address[9];
+    string_3[16] = usb_ethernet_address[10];
+    string_3[18] = usb_ethernet_address[12];
+    string_3[20] = usb_ethernet_address[13];
+    string_3[22] = usb_ethernet_address[15];
+    string_3[24] = usb_ethernet_address[16];
+}
+
+static const char* const pcShortOptions = "hp:b:e:i:";
 static const struct option stLongOptions[] =
 {
     {"help"                        , 0, 0, 'h'},
+    {"port"                        , 1, 0, 'p'},
+    {"bus"                         , 1, 0, 'b'},
+    {"ethernet_address"            , 1, 0, 'e'},
     {"interface"                   , 1, 0, 'i'},
     {0, 0, 0, 0}
 };
 
-/* Show program help
- */
 static void help()
 {
     printf("help:\n");
-    printf("[-h] [-i <network_interface>]\n\n");
-    printf("--help/-h                            Show this help\n");
-    printf("--interface/-i <network_interface>   Network interface to bind for emulator data plane\n");
+    printf("[-h] [-p <tcp port>] [-b <bus-port:...>] [-e <ethernet address>] [-i <network_interface>]\n\n");
+    printf("--help/-h                                  Show this help\n");
+    printf("--port/-p <tcp port>                       Tcp port for usbip server\n");
+    printf("--bus/-b <bus-port:...>                    Usb bus and port for emulation\n");
+    printf("--ethernet_address/-e <xx:xx:xx:xx:xx:xx>  Ethernet address for emulated device\n");
+    printf("--interface/-i <network_interface>         Network interface to bind for emulator data plane\n");
     printf("\n");
 }
 
@@ -790,8 +833,17 @@ int main(int argc, char **argv)
             case 'h':
                 help();
                 return 0;
+            case 'p':
+                server_usbip_tcp_port = atoi(optarg);
+                break;
+            case 'b':
+                strncpy(usb_bus_port, optarg, MAX_USB_BUS_PORT_SIZE-1);
+                break;
+            case 'e':
+                strncpy(usb_ethernet_address, optarg, ETH_ALEN * 3 - 1);
+                break;
             case 'i':
-                strncpy(ifName, optarg, IFNAMSIZ-1);
+                strncpy(if_name, optarg, IFNAMSIZ-1);
                 break;
             case -1:
                 break;
@@ -801,22 +853,14 @@ int main(int argc, char **argv)
         }
    }
    while (iOption != -1);
-   if (!strlen(usbBusDevice))
-   {
-       strncpy(usbBusDevice, DEFAULT_USB_BUS_DEVICE, MAX_USB_BUS_DEVICE_SIZE-1);
-   }
-   if (!strlen(manufacturer))
-   {
-       strncpy(manufacturer, DEFAULT_MANUFACTURER, MAX_MANUFACTURER_SIZE-1);
-   }
-   if (!strlen(ifName))
-   {
-       strncpy(ifName, DEFAULT_IF, IFNAMSIZ-1);
-   }
    printf("cdc-ether started....\n");
-   printf("Bus-Device: %s\n", usbBusDevice);
+   printf("server usbip tcp port: %d\n", server_usbip_tcp_port);
+   printf("Bus-Port: %s\n", usb_bus_port);
+   configure_usb_bus_port();
+   printf("Ethernet address: %s\n", usb_ethernet_address);
+   configure_usb_ethernet_address();
    printf("Manufacturer: %s\n", manufacturer);
-   printf("Network interface to bind: %s\n", ifName);
+   printf("Network interface to bind: %s\n", if_name);
    configure_tx_data(); 
    configure_rx_data(); 
    usbip_run(&dev_dsc);

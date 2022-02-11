@@ -102,10 +102,16 @@ void handle_attach(const USB_DEVICE_DESCRIPTOR *dev_dsc, OP_REP_IMPORT *rep)
   rep->command=htons(3);
   rep->status=0;
   memset(rep->usbPath,0,256);
-  strcpy(rep->usbPath,"/sys/devices/pci0000:00/0000:00:01.2/usb1/1-1");
   memset(rep->busID,0,32);
+#if CONFIGURABLE_USB_BUS_PORT
+  strcpy(rep->usbPath,usb_bus_port_path);
+  strcpy(rep->busID,usb_bus_port);
+  rep->busnum=htonl(usb_bus);
+#else
+  strcpy(rep->usbPath,"/sys/devices/pci0000:00/0000:00:01.2/usb1/1-1");
   strcpy(rep->busID,"1-1");
   rep->busnum=htonl(1);
+#endif
 #ifdef CDC_ETHER
   rep->devnum=htonl(3);
   rep->speed=htonl(3);
