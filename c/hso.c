@@ -184,89 +184,11 @@ const USB_INTERFACE_DESCRIPTOR *interfaces[]={ &configuration_hso.dev_int0};
 
 const unsigned char *strings[]={string_0, string_1, string_2, string_3};
 
-
-#define BSIZE 64 
-char buffer[BSIZE+1];
-int  bsize=0;
-
-
 void handle_data(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl)
 { 
-  /* TODO Same data handling than cdc-acm, not used but ... */	
-  printf("HSO DATA TEST\n");
-
-  if(usb_req->ep == 0x01)
-  {  
-    printf("EP1 received \n"); 
-    
-    if(usb_req->direction == 0) //input
-    { 
-      printf("direction=input\n");  
-      bsize=recv (sockfd, (char *) buffer , bl, 0);
-      send_usb_req(sockfd, usb_req,"", 0, 0);
-      buffer[bsize+1]=0; //string terminator
-      printf("received (%s)\n",buffer);
-    }
-    else
-    {    
-        printf("direction=output\n");  
-    }
-    //not supported
-    send_usb_req(sockfd, usb_req, "", 0, 0);
-    usleep(500);
-  }
-  
-  if((usb_req->ep == 0x02))
-  {
-    printf("EP2 received \n"); 
-    if(usb_req->direction == 0) //input
-    { 
-      int i;
-      printf("direction=input\n");  
-      bsize=recv (sockfd, (char *) buffer , bl, 0);
-      send_usb_req(sockfd, usb_req,"", 0, 0);
-      buffer[bsize+1]=0; //string terminator
-      printf("received (%s)\n",buffer);
-      for(i=0;i<bsize;i++)
-          printf("%02X",(unsigned char)buffer[i]);
-      printf("\n");       
-    }
-    else //output
-    {
-      printf("direction=output\n");  
-      if(bsize != 0)
-      {   
-        int i;
-        for(i=0;i<bsize;i++)//increment received char
-           buffer[i]+=1;
-
-        send_usb_req(sockfd, usb_req, buffer, bsize, 0);    
-        printf("sending (%s)\n",buffer);
-        bsize=0;
-      }
-      else
-      {
-        send_usb_req(sockfd, usb_req,"", 0, 0);    
-        usleep(500);
-        printf("no data disponible\n");
-      }
-    }
-  }
-  
+  /* TODO */
+  printf("HSO DATA\n");
 };
-
-
-typedef struct _LINE_CODING
-{
-    word dwDTERate;  //in bits per second
-    byte bCharFormat;//0-1 stop; 1-1.5 stop; 2-2 stop bits
-    byte ParityType; //0 none; 1- odd; 2 -even; 3-mark; 4 -space
-    byte bDataBits;  //5,6,7,8 or 16
-}LINE_CODING;
-
-LINE_CODING linec;
-
-unsigned short linecs=0;
 
 void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USBIP_RET_SUBMIT *usb_req)
 {
@@ -276,11 +198,6 @@ void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USB
     {
         if(control_req->bRequest == 0x82)
         {
-            if ((recv (sockfd, (char *) &linec , control_req->wLength, 0)) != control_req->wLength)
-            {
-                printf ("receive error : %s \n", strerror (errno));
-                exit(-1);
-            };
             send_usb_req(sockfd,usb_req,"",0,0);
         }
     }
