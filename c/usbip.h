@@ -128,6 +128,46 @@ typedef struct __attribute__ ((__packed__)) _USB_DEVICE_QUALIFIER_DESCRIPTOR
     byte bReserved;             // Always zero (0)
 } USB_DEVICE_QUALIFIER_DESCRIPTOR;
 
+/* USB_DT_BOS:  group of device-level capabilities */
+typedef struct __attribute__ ((__packed__)) _USB_DT_BOS
+{
+    byte bLength;
+    byte bDescriptorType;
+    word wTotalLength;
+    byte bNumDeviceCaps;
+} USB_DT_BOS;
+
+/* USB_DT_DEVICE_CAPABILITY:  grouped with BOS */
+typedef struct __attribute__ ((__packed__)) _USB_DT_DEVICE_CAPABILITY
+{
+    byte bLength;
+    byte bDescriptorType;
+    byte bDevCapabilityType;
+    byte cap0;
+    byte cap1;
+    byte cap2;
+    byte cap3;
+} USB_DT_DEVICE_CAPABILITY;
+
+typedef struct __attribute__ ((__packed__)) _USB_DT_BOS_DEVICE_CAPABILITY
+{
+    USB_DT_BOS dt_bos;
+    USB_DT_DEVICE_CAPABILITY dt_device_capability;
+} USB_DT_BOS_DEVICE_CAPABILITY;
+
+/* "Ethernet Networking Functional Descriptor" from CDC spec 5.2.3.16 */
+typedef struct __attribute__ ((__packed__)) _USB_CDC_ETHER_FN_DSC
+{
+    byte bLength;
+    byte bDescriptorType;
+    byte bDescriptorSubType;
+    byte iMACAddress;
+    unsigned int  bmEthernetStatistics;
+    word wMaxSegmentSize;
+    word wNumberMCFilters;
+    byte bNumberPowerFilters;
+} USB_CDC_ETHER_FN_DSC;
+
 //Generic Configuration
 typedef struct __attribute__ ((__packed__)) _CONFIG_GEN
 {
@@ -383,9 +423,20 @@ void usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc);
 
 //implemented by user
 extern const USB_DEVICE_DESCRIPTOR dev_dsc;
+#ifndef NO_QUALIFIER
 extern const USB_DEVICE_QUALIFIER_DESCRIPTOR  dev_qua;
+#endif
+#ifdef BOS
+extern const USB_DT_BOS_DEVICE_CAPABILITY dt_bos_device_cap;
+#endif
+#ifdef MULTIPLE_CONFIGURATIONS
+extern const char * configuration[];
+#else
 extern const char * configuration;
+#endif
+#ifndef NO_DEVICE_LIST
 extern const USB_INTERFACE_DESCRIPTOR *interfaces[];
+#endif
 extern const unsigned char *strings[];
 
 void handle_data(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl);

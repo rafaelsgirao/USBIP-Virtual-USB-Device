@@ -28,13 +28,12 @@
 
 #include"usbip.h"
 
-
 #ifdef _DEBUG
-void print_recv(char* buff,int size,const char* desc)
+void print_msg(char* buff,int size,const char* desc, unsigned char send)
 {
     int i,j;
     
-    printf("----------recv  %s (%i)-----------\n",desc,size);
+    printf("----------%s  %s (%i)-----------\n",send?"send":"recv", desc,size);
             
     j=1;
     for(i=0; i< size; i++)
@@ -58,6 +57,7 @@ WORD wVersionRequested = 2;
 WSADATA wsaData;
 #endif
 
+#ifndef NO_DEVICE_LIST
 void handle_device_list(const USB_DEVICE_DESCRIPTOR *dev_dsc, OP_REP_DEVLIST *list)
 {
   CONFIG_GEN * conf= (CONFIG_GEN *)configuration;   
@@ -91,11 +91,13 @@ void handle_device_list(const USB_DEVICE_DESCRIPTOR *dev_dsc, OP_REP_DEVLIST *li
     list->interfaces[i].padding=0;
   }
 };
+#endif
 
 void handle_attach(const USB_DEVICE_DESCRIPTOR *dev_dsc, OP_REP_IMPORT *rep)
 {
-  CONFIG_GEN * conf= (CONFIG_GEN *)configuration; 
-    
+#ifndef MULTIPLE_CONFIGURATIONS
+  CONFIG_GEN * conf= (CONFIG_GEN *)configuration;
+#endif
   rep->version=htons(273);
   rep->command=htons(3);
   rep->status=0;
@@ -104,17 +106,30 @@ void handle_attach(const USB_DEVICE_DESCRIPTOR *dev_dsc, OP_REP_IMPORT *rep)
   memset(rep->busID,0,32);
   strcpy(rep->busID,"1-1");
   rep->busnum=htonl(1);
+#ifdef CDC_ETHER
+  rep->devnum=htonl(3);
+  rep->speed=htonl(3);
+  rep->idVendor=htons(dev_dsc->idVendor);
+  rep->idProduct=htons(dev_dsc->idProduct);
+  rep->bcdDevice=htons(dev_dsc->bcdDevice);
+#else
   rep->devnum=htonl(2);
   rep->speed=htonl(2);
   rep->idVendor=dev_dsc->idVendor;
   rep->idProduct=dev_dsc->idProduct;
   rep->bcdDevice=dev_dsc->bcdDevice;
+#endif
   rep->bDeviceClass=dev_dsc->bDeviceClass;
   rep->bDeviceSubClass=dev_dsc->bDeviceSubClass;
   rep->bDeviceProtocol=dev_dsc->bDeviceProtocol;
   rep->bNumConfigurations=dev_dsc->bNumConfigurations; 
+#ifdef MULTIPLE_CONFIGURATIONS
+  rep->bConfigurationValue=0;
+  rep->bNumInterfaces=0;
+#else
   rep->bConfigurationValue=conf->dev_conf.bConfigurationValue;
   rep->bNumInterfaces=conf->dev_conf.bNumInterfaces;
+#endif
 }
 
 void pack(int * data, int size)
@@ -161,14 +176,20 @@ void send_usb_req(int sockfd, USBIP_RET_SUBMIT * usb_req, char * data, unsigned 
     
         pack((int *)usb_req, sizeof(USBIP_RET_SUBMIT));
  
+#ifdef _DEBUG
+        print_msg((char*)usb_req, sizeof(USBIP_RET_SUBMIT),"Req", 1);
+#endif
         if (send (sockfd, (char *)usb_req, sizeof(USBIP_RET_SUBMIT), 0) != sizeof(USBIP_RET_SUBMIT))
         {
           printf ("send error : %s \n", strerror (errno));
           exit(-1);
         };
 
-        if(size > 0)
+        if ((size > 0) && (data))
         {
+#ifdef _DEBUG
+           print_msg((char*)data, size,"Req Data", 1);
+#endif
            if (send (sockfd, data, size, 0) != size)
            {
              printf ("send error : %s \n", strerror (errno));
@@ -176,11 +197,13 @@ void send_usb_req(int sockfd, USBIP_RET_SUBMIT * usb_req, char * data, unsigned 
            };
         }
 } 
-            
+
 int handle_get_descriptor(int sockfd, StandardDeviceRequest * control_req, USBIP_RET_SUBMIT *usb_req)
 {
   int handled = 0;
+#ifndef REDUCE_LOG
   printf("handle_get_descriptor %u [%u]\n",control_req->wValue1,control_req->wValue0 );
+#endif
   if(control_req->wValue1 == 0x1) // Device
   {
     printf("Device\n");  
@@ -189,9 +212,17 @@ int handle_get_descriptor(int sockfd, StandardDeviceRequest * control_req, USBIP
    } 
    if(control_req->wValue1 == 0x2) // configuration
    {
-     printf("Configuration\n");  
+#ifdef MULTIPLE_CONFIGURATIONS
+     printf("Configuration %d\n", control_req->wValue0);
+#else
+     printf("Configuration\n");
+#endif
      handled = 1;
+#ifdef MULTIPLE_CONFIGURATIONS
+     send_usb_req(sockfd,usb_req, (char *) configuration[control_req->wValue0], control_req->wLength ,0);
+#else
      send_usb_req(sockfd,usb_req, (char *) configuration, control_req->wLength ,0);
+#endif
    }
    if(control_req->wValue1 == 0x3) // string
    {
@@ -206,9 +237,13 @@ int handle_get_descriptor(int sockfd, StandardDeviceRequest * control_req, USBIP
    }
    if(control_req->wValue1 == 0x6) // qualifier
    {
+#ifndef NO_QUALIFIER
      printf("Qualifier\n");  
      handled = 1;
      send_usb_req(sockfd,usb_req, (char *) &dev_qua , control_req->wLength ,0);
+#else
+     printf("QUALIFIER NEEDS TO BE HANDLED!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+#endif
    }
    if(control_req->wValue1 == 0xA) // config status ???
    {
@@ -216,13 +251,32 @@ int handle_get_descriptor(int sockfd, StandardDeviceRequest * control_req, USBIP
      handled = 1;
      send_usb_req(sockfd,usb_req,"",0,1);        
    }  
+#ifdef BOS
+   if(control_req->wValue1 == 0xf) // BOS
+   {
+     if (control_req->wLength == sizeof(USB_DT_BOS))
+     {
+       printf("BOS\n");
+       handled = 1;
+       send_usb_req(sockfd,usb_req, (char *)&dt_bos_device_cap.dt_bos, sizeof(USB_DT_BOS), 0);
+     }
+     else if (control_req->wLength == sizeof(USB_DT_BOS_DEVICE_CAPABILITY))
+     {
+       printf("BOS + CAPABILITY\n");
+       handled = 1;
+       send_usb_req(sockfd,usb_req, (char *)&dt_bos_device_cap, sizeof(USB_DT_BOS_DEVICE_CAPABILITY), 0);
+     }
+   }
+#endif
    return handled;
 }
 
 int handle_set_configuration(int sockfd, StandardDeviceRequest * control_req, USBIP_RET_SUBMIT *usb_req)
 {
   int handled = 0;
+#ifndef REDUCE_LOG
   printf("handle_set_configuration %u[%u]\n",control_req->wValue1,control_req->wValue0 );
+#endif
   handled = 1;
   send_usb_req(sockfd, usb_req, "", 0, 0);        
   return handled;
@@ -235,7 +289,9 @@ void handle_usb_control(int sockfd, USBIP_RET_SUBMIT *usb_req)
         int handled = 0;
         StandardDeviceRequest control_req;
 #ifdef LINUX
+#ifndef REDUCE_LOG
         printf("%016llX\n",usb_req->setup); 
+#endif
 #else
         printf("%016I64X\n",usb_req->setup); 
 #endif
@@ -246,11 +302,13 @@ void handle_usb_control(int sockfd, USBIP_RET_SUBMIT *usb_req)
         control_req.wIndex0=        (usb_req->setup & 0x00000000FF000000)>>24; 
         control_req.wIndex1=        (usb_req->setup & 0x0000000000FF0000)>>16;
         control_req.wLength=   ntohs(usb_req->setup & 0x000000000000FFFF);  
+#ifndef REDUCE_LOG
         printf("  UC Request Type %u\n",control_req.bmRequestType);
         printf("  UC Request %u\n",control_req.bRequest);
         printf("  UC Value  %u[%u]\n",control_req.wValue1,control_req.wValue0);
         printf("  UCIndex  %u-%u\n",control_req.wIndex1,control_req.wIndex0);
         printf("  UC Length %u\n",control_req.wLength);
+#endif
         
         if(control_req.bmRequestType == 0x80) // Host Request
         {
@@ -272,6 +330,7 @@ void handle_usb_control(int sockfd, USBIP_RET_SUBMIT *usb_req)
         {
             if(control_req.bRequest == 0x09) // Set Configuration
             {
+                printf("Set Configuration\n");
                 handled = handle_set_configuration(sockfd, &control_req, usb_req);
             }
         }  
@@ -279,8 +338,12 @@ void handle_usb_control(int sockfd, USBIP_RET_SUBMIT *usb_req)
         { 
           if(control_req.bRequest == 0x0B) //SET_INTERFACE  
           {
-            printf("SET_INTERFACE\n");   
+            printf("Set Interface\n");
+#ifdef CDC_ETHER
+            send_usb_req(sockfd,usb_req,"",0,0);
+#else
             send_usb_req(sockfd,usb_req,"",0,1);
+#endif
             handled=1; 
           } 
         }
@@ -288,17 +351,20 @@ void handle_usb_control(int sockfd, USBIP_RET_SUBMIT *usb_req)
             handle_unknown_control(sockfd, &control_req, usb_req);
 }
 
-           
 void handle_usb_request(int sockfd, USBIP_RET_SUBMIT *ret, int bl)
 {
    if(ret->ep == 0)
    {
+#ifndef REDUCE_LOG
       printf("#control requests\n");
+#endif
       handle_usb_control(sockfd, ret);
    }
    else
    {
+#ifndef REDUCE_LOG
       printf("#data requests\n");
+#endif
       handle_data(sockfd, ret, bl);
    }
 };
@@ -314,8 +380,6 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
   int clilen;
 #endif
   unsigned char attached;
-
-
 
 #ifndef LINUX
   WSAStartup (wVersionRequested, &wsaData);
@@ -379,16 +443,18 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
                break;
              };
 #ifdef _DEBUG
-             print_recv((char *)&req, sizeof(OP_REQ_DEVLIST),"OP_REQ_DEVLIST");
+             print_msg((char *)&req, sizeof(OP_REQ_DEVLIST),"OP_REQ_DEVLIST", 0);
 #endif
              req.command=ntohs(req.command);
+#ifndef REDUCE_LOG
              printf("Header Packet\n");  
              printf("command: 0x%02X\n",req.command);
+#endif
              if(req.command == 0x8005)
              {
+#ifndef NO_DEVICE_LIST
                OP_REP_DEVLIST list;
                printf("list of devices\n");
-
                handle_device_list(dev_dsc,&list);
 
                if (send (sockfd, (char *)&list.header, sizeof(OP_REP_DEVLIST_HEADER), 0) != sizeof(OP_REP_DEVLIST_HEADER))
@@ -407,6 +473,9 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
                    break;
                };
                free(list.interfaces);
+#else
+		printf("LIST NEEDS TO BE HANDLED!!!!!!!!!!!!!!\n");
+#endif
              }
              else if(req.command == 0x8003) 
              {
@@ -419,9 +488,14 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
                  break;
                };
 #ifdef _DEBUG
-             print_recv(busid, 32,"Busid");
+             print_msg(busid, 32,"Busid", 0);
 #endif
+
                handle_attach(dev_dsc,&rep);
+
+#ifdef _DEBUG
+               print_msg((char*)&rep, sizeof(OP_REP_IMPORT),"Attach", 1);
+#endif
                if (send (sockfd, (char *)&rep, sizeof(OP_REP_IMPORT), 0) != sizeof(OP_REP_IMPORT))
                {
                    printf ("send error : %s \n", strerror (errno));
@@ -432,8 +506,10 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
           }
           else
           {
+#ifndef REDUCE_LOG
              printf("------------------------------------------------\n"); 
              printf("handles requests\n");
+#endif
              USBIP_CMD_SUBMIT cmd;
              USBIP_RET_SUBMIT usb_req;
              if ((nb = recv (sockfd, (char *)&cmd, sizeof(USBIP_CMD_SUBMIT), 0)) != sizeof(USBIP_CMD_SUBMIT))
@@ -442,9 +518,10 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
                break;
              };
 #ifdef _DEBUG
-             print_recv((char *)&cmd, sizeof(USBIP_CMD_SUBMIT),"USBIP_CMD_SUBMIT");
+             print_msg((char *)&cmd, sizeof(USBIP_CMD_SUBMIT),"USBIP_CMD_SUBMIT", 0);
 #endif
              unpack((int *)&cmd,sizeof(USBIP_CMD_SUBMIT));               
+#ifndef REDUCE_LOG
              printf("usbip cmd %u\n",cmd.command);
              printf("usbip seqnum %u\n",cmd.seqnum);
              printf("usbip devid %u\n",cmd.devid);
@@ -458,7 +535,8 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
 #else
              printf("usbip setup %I64u\n",cmd.setup);
 #endif
-             printf("usbip buffer lenght  %u\n",cmd.transfer_buffer_length);
+             printf("usbip buffer length  %u\n",cmd.transfer_buffer_length);
+#endif
              usb_req.command=0;
              usb_req.seqnum=cmd.seqnum;
              usb_req.devid=cmd.devid;
@@ -473,28 +551,10 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
              
              if(cmd.command == 1)
                handle_usb_request(sockfd, &usb_req, cmd.transfer_buffer_length);
-             
 
              if(cmd.command == 2) //unlink urb
              {
                 printf("####################### Unlink URB %u  (not working!!!)\n",cmd.transfer_flags);
-             //FIXME
-               /*              
-                USBIP_RET_UNLINK ret;  
-                printf("####################### Unlink URB %u\n",cmd.transfer_flags);
-                ret.command=htonl(0x04);
-                ret.devid=htonl(cmd.devid);
-                ret.direction=htonl(cmd.direction);
-                ret.ep=htonl(cmd.ep);
-                ret.seqnum=htonl(cmd.seqnum);
-                ret.status=htonl(1);
- 
-                if (send (sockfd, (char *)&ret, sizeof(USBIP_RET_UNLINK), 0) != sizeof(USBIP_RET_UNLINK))
-                {
-                  printf ("send error : %s \n", strerror (errno));
-                  exit(-1);
-                };
-               */ 
              }
 
              if(cmd.command > 2)
