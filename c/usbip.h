@@ -20,7 +20,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-   For e-mail suggestions :  lcgamboa@yahoo.com
+   For e-mail suggestions :  lcgamboa@yahoo.com, jtornosm@redhat.com
    ######################################################################## */
 
 #ifdef LINUX
@@ -444,9 +444,12 @@ extern const USB_INTERFACE_DESCRIPTOR *interfaces[];
 #endif
 extern const unsigned char *strings[];
 #ifdef CONFIGURABLE_USB_BUS_PORT
+#define USB_BUS_PORT_PATH "/sys/bus/usb/devices/%s"
+#define MAX_USB_BUS_PORT_SIZE 10
+#define MAX_USB_BUS_PORT_PATH_SIZE 256
+#define DEFAULT_USB_BUS 1
 extern char usb_bus_port[];
-extern char usb_bus_port_path[];
-extern int usb_bus;
+void configure_usb_bus_port(void);
 #endif
 
 void handle_data(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl);

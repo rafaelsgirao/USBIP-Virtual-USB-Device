@@ -1,5 +1,6 @@
 CC=gcc
 CFLAGS= -Wall -DLINUX
+HSO_CFLAGS=${CFLAGS} -DCONFIGURABLE_SERVER_USBIP_TCP_PORT -DCONFIGURABLE_USB_BUS_PORT -DREDUCE_LOG
 CDC_ETHER_CFLAGS=${CFLAGS} -DMULTIPLE_CONFIGURATIONS -DNO_DEVICE_LIST -DNO_QUALIFIER -DBOS -DCONFIGURABLE_SERVER_USBIP_TCP_PORT -DCONFIGURABLE_USB_BUS_PORT -DCDC_ETHER -DREDUCE_LOG -lpthread
 PROGS= hid-mouse hid-keyboard cdc-acm hso cdc-ether
 ifeq ($(DEBUG),YES)
@@ -21,8 +22,8 @@ cdc-acm:	usbip.c cdc-acm.c
 		${CC} ${CFLAGS} usbip.o cdc-acm.c -o cdc-acm
 
 hso:	usbip.c hso.c
-		${CC} ${CFLAGS} usbip.c -c
-		${CC} ${CFLAGS} usbip.o hso.c -o hso
+		${CC} ${HSO_CFLAGS} usbip.c -c
+		${CC} ${HSO_CFLAGS} usbip.o hso.c -o hso
 
 cdc-ether:	usbip.c cdc-ether.c
 		${CC} ${CDC_ETHER_CFLAGS} usbip.c -c

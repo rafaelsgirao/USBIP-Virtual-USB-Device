@@ -20,13 +20,28 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-   For e-mail suggestions :  lcgamboa@yahoo.com
+   For e-mail suggestions :  lcgamboa@yahoo.com, jtornosm@redhat.com
    ######################################################################## */
 
 //system headers dependent
 
-
 #include"usbip.h"
+
+#ifdef CONFIGURABLE_USB_BUS_PORT
+static char usb_bus_port_path[MAX_USB_BUS_PORT_PATH_SIZE] = {0};
+static int usb_bus = 0;
+
+void configure_usb_bus_port(void)
+{
+    snprintf(usb_bus_port_path, MAX_USB_BUS_PORT_PATH_SIZE - 1, USB_BUS_PORT_PATH, usb_bus_port);
+    sscanf(usb_bus_port,"%d-", &usb_bus);
+    if (usb_bus == 0)
+    {
+        usb_bus = DEFAULT_USB_BUS;
+        printf("using default bus for emulator (%d)\n", usb_bus);
+    }
+}
+#endif
 
 #ifdef _DEBUG
 void print_msg(char* buff,int size,const char* desc, unsigned char send)

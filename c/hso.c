@@ -20,13 +20,15 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-   For e-mail suggestions :  lcgamboa@yahoo.com
+   For e-mail suggestions :  jtornosm@redhat.com
    ######################################################################## */
 
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <getopt.h>
+
 #include "usbip.h"
 
 /* Device Descriptor */
@@ -184,6 +186,9 @@ const USB_INTERFACE_DESCRIPTOR *interfaces[]={ &configuration_hso.dev_int0};
 
 const unsigned char *strings[]={string_0, string_1, string_2, string_3};
 
+unsigned short server_usbip_tcp_port = 3240;
+char usb_bus_port[MAX_USB_BUS_PORT_SIZE] = "1-1";
+
 void handle_data(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl)
 { 
   /* TODO */
@@ -203,9 +208,56 @@ void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USB
     }
 }
 
-int main()
+static const char* const pcShortOptions = "hp:b:";
+static const struct option stLongOptions[] =
 {
+    {"help"                        , 0, 0, 'h'},
+    {"port"                        , 1, 0, 'p'},
+    {"bus"                         , 1, 0, 'b'},
+    {0, 0, 0, 0}
+};
+
+static void help()
+{
+    printf("help:\n");
+    printf("[-h] [-p <tcp port>] [-b <bus-port:...>] [-e <ethernet address>] [-i <network_interface>]\n\n");
+    printf("--help/-h                                  Show this help\n");
+    printf("--port/-p <tcp port>                       Tcp port for usbip server\n");
+    printf("--bus/-b <bus-port:...>                    Usb bus and port for emulation\n");
+    printf("\n");
+}
+
+int main(int argc, char **argv)
+{
+    int32_t iOption = -1;
+
+    /* Get options */
+    do
+    {
+        iOption = getopt_long(argc, argv, pcShortOptions, stLongOptions, 0);
+        switch (iOption)
+        {
+            case 'h':
+                help();
+                return 0;
+            case 'p':
+                server_usbip_tcp_port = atoi(optarg);
+                break;
+            case 'b':
+                strncpy(usb_bus_port, optarg, MAX_USB_BUS_PORT_SIZE-1);
+                break;
+            case -1:
+                break;
+            default:
+                printf("unknown command\n");
+                exit(255);
+        }
+   }
+   while (iOption != -1);
    printf("hso started....\n");
+   printf("server usbip tcp port: %d\n", server_usbip_tcp_port);
+   printf("Bus-Port: %s\n", usb_bus_port);
+   configure_usb_bus_port();
    usbip_run(&dev_dsc);
 }
 

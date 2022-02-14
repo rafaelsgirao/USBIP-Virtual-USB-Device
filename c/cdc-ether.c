@@ -20,7 +20,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-   For e-mail suggestions :  lcgamboa@yahoo.com
+   For e-mail suggestions :  jtornosm@redhat.com
    ######################################################################## */
 
 #include <string.h>
@@ -38,7 +38,6 @@
 #include <netinet/tcp.h>
 #include <pthread.h>
 #include <getopt.h>
-#include <dirent.h>
 
 #include "usbip.h"
 
@@ -374,14 +373,7 @@ static int rx_data_ifidx = 0;
 #undef DEBUG_RX_DATA
 
 unsigned short server_usbip_tcp_port = 3240;
-#define MAX_VHCI_HCD_DEVICES 128
-#define MAX_VHCI_HCD_USB_DEVICES 128
-#define USB_BUS_PORT_PATH "/sys/devices/platform/vhci_hcd.%d/usb%d/%s"
-#define MAX_USB_BUS_PORT_SIZE 10
-char usb_bus_port[MAX_USB_BUS_PORT_SIZE] = "3-0:1.0";
-#define MAX_USB_BUS_PORT_PATH_SIZE 256
-char usb_bus_port_path[MAX_USB_BUS_PORT_PATH_SIZE] = {0};
-int usb_bus = 3;
+char usb_bus_port[MAX_USB_BUS_PORT_SIZE] = "1-1";
 static char usb_ethernet_address[] = "88:00:66:99:5b:e9";
 #define MAX_MANUFACTURER_SIZE 32
 static char manufacturer[MAX_MANUFACTURER_SIZE] = "Temium";
@@ -753,27 +745,6 @@ void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USB
             start_rx_data(sockfd);
         }
     }
-}
-
-static void configure_usb_bus_port(void)
-{
-    int i,j;
-    DIR *dirptr;
-
-    for(i = 0; i < MAX_VHCI_HCD_DEVICES; i++)
-    {
-        for(j = 0 ; j < MAX_VHCI_HCD_USB_DEVICES; j++)
-        {
-            snprintf(usb_bus_port_path, MAX_USB_BUS_PORT_PATH_SIZE - 1, USB_BUS_PORT_PATH, i, j, usb_bus_port);
-            if((dirptr = opendir(usb_bus_port_path))) {
-                closedir(dirptr);
-                sscanf(usb_bus_port,"%d-", &usb_bus);
-                return;
-            }
-        }
-    }
-    printf("not found\n");
-    exit(-3);
 }
 
 static void configure_usb_ethernet_address(void)
