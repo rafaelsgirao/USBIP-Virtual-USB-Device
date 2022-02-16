@@ -442,7 +442,7 @@ static void send_usb_req_data(int sockfd, USBIP_RET_SUBMIT * usb_req, char * dat
         {
             tcph = (struct tcphdr *)(data + sizeof(struct ether_header) + iph_len);
             tcph->check = 0;
-            tcph->check = net_checksum_tcpudp(ntohs(iph->tot_len) - iph_len, ntohs(iph->protocol), (uint8_t *)(&(iph->saddr)), (uint8_t *)tcph);
+            tcph->check = net_checksum_tcpudp(ntohs(iph->tot_len) - iph_len, iph->protocol, (uint8_t *)(&(iph->saddr)), (uint8_t *)tcph);
 #ifdef DEBUG_RX_DATA
             printf("tcp checksum %x\n", tcph->check); 
 #endif
@@ -458,8 +458,9 @@ static void send_usb_req_data(int sockfd, USBIP_RET_SUBMIT * usb_req, char * dat
         {
             if (rx_data_send_size_array[rx_data_current_send_seq_pos] < size)
             {
-                rx_data_send_seq_array[rx_data_current_send_seq_pos] = -1;
                 printf("not enough granted data (%d/%d)\n", size, rx_data_send_size_array[rx_data_current_send_seq_pos]);
+                pthread_mutex_unlock(&rx_data_send_mutex);
+                return;
             }
             else
             {
@@ -557,7 +558,7 @@ static int configure_rx_data()
 
     if (pthread_mutex_init(&rx_data_send_mutex, NULL) != 0) {                                  
         perror("pthread_mutex_init() error");                                       
-        exit(-12);                                                                    
+        exit(-2);
     }      
 
     /* Open PF_PACKET socket, listening for EtherType */
@@ -573,7 +574,7 @@ static int configure_rx_data()
     if (ioctl(rx_data_sockfd, SIOCSIFFLAGS, &ifopts) < 0)
     {
         perror("SIOCSIFFLAGS");
-        exit(-1);
+        exit(-2);
     }
 
     /* Allow the socket to be reused - incase connection is closed prematurely */
@@ -590,7 +591,7 @@ static int configure_rx_data()
     if (ioctl(rx_data_sockfd, SIOCGIFINDEX, &if_idx) < 0)
     {
         perror("SIOCGIFINDEX");
-        exit(-1);
+        exit(-2);
     }
     rx_data_ifidx = if_idx.ifr_ifindex;
     memset(&addr,0,sizeof(addr));
@@ -619,7 +620,7 @@ static int receive_rx_data(char * data, int size)
     if ((num_bytes = recvfrom(rx_data_sockfd, data, size, 0, (void*)&saddr, (socklen_t *)&saddr_len)) < 0)
     {
         printf("rx data receiving failed\n");
-        exit(-1);
+        exit(-2);
     }
     if ((num_bytes) &&
         (saddr.sll_ifindex == rx_data_ifidx) &&
@@ -679,7 +680,7 @@ static int start_rx_data(int sockfd)
     if ((err = pthread_create(&rx_data_threadId, NULL, &rx_data_thread, &rx_data_driver_sockfd)))
     {
         printf("rx_data thread craation failed: %s\n", strerror(err));
-        exit(-3);
+        exit(-2);
     }
 
     started = 1;
