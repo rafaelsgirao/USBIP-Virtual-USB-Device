@@ -451,6 +451,9 @@ extern const unsigned char *strings[];
 extern char usb_bus_port[];
 void configure_usb_bus_port(void);
 #endif
+#ifdef SYNC_DATA_STOP
+extern void rx_data_process_stop(void);
+#endif
 
 void handle_data(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl);
 void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USBIP_RET_SUBMIT *usb_req);

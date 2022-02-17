@@ -37,6 +37,7 @@
 #include <netinet/udp.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
+#include <signal.h>
 #include <getopt.h>
 
 #include "usbip.h"
@@ -350,6 +351,7 @@ const unsigned char string_5[] = {
 
 const unsigned char *strings[]={string_0, string_1, string_2, string_3, string_4, string_5};
 
+static pthread_t main_threadId = -1;
 #undef DEBUG_EP_ALL
 #undef DEBUG_EP_DATA
 #define MAX_DATA_BUFFER_SIZE 10000
@@ -359,7 +361,7 @@ static struct sockaddr_ll tx_data_socket_address;
 #undef DEBUG_TX_DATA
 static int rx_data_sockfd = -1;
 static char rx_data_buffer[MAX_DATA_BUFFER_SIZE];
-static pthread_t rx_data_threadId;
+static pthread_t rx_data_threadId = -1;
 static int rx_data_driver_sockfd = -1;
 static unsigned char mac_addr[ETH_ALEN] = {0};
 static unsigned char broadcast_mac_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -368,6 +370,7 @@ static int rx_data_next_send_seq_pos = 0;
 #define RX_DATA_SEND_SEQ_ARRAY_SIZE 100000
 static int rx_data_send_seq_array[RX_DATA_SEND_SEQ_ARRAY_SIZE] = { [0 ... (RX_DATA_SEND_SEQ_ARRAY_SIZE - 1)] = -1};
 static int rx_data_send_size_array[RX_DATA_SEND_SEQ_ARRAY_SIZE] = {0};
+static int rx_data_enable = 1;
 static pthread_mutex_t rx_data_send_mutex;
 static int rx_data_ifidx = 0;
 #undef DEBUG_RX_DATA
@@ -454,6 +457,11 @@ static void send_usb_req_data(int sockfd, USBIP_RET_SUBMIT * usb_req, char * dat
     while(1)
     {
         pthread_mutex_lock(&rx_data_send_mutex);
+        if (!rx_data_enable)
+        {
+            pthread_mutex_unlock(&rx_data_send_mutex);
+            return;
+        }
         if (rx_data_send_seq_array[rx_data_current_send_seq_pos] != -1)
         {
             if (rx_data_send_size_array[rx_data_current_send_seq_pos] < size)
@@ -669,23 +677,35 @@ static  void * rx_data_thread(void * psockfd)
 static int start_rx_data(int sockfd)
 { 
     int err;
-    static unsigned char started = 0;
 
-    if (started)
+    rx_data_driver_sockfd = sockfd;
+
+    pthread_mutex_lock(&rx_data_send_mutex);
+    rx_data_enable = 1;
+    pthread_mutex_unlock(&rx_data_send_mutex);
+
+    if (rx_data_threadId != -1)
     {
         return 0;
     }
-
-    rx_data_driver_sockfd = sockfd;
     if ((err = pthread_create(&rx_data_threadId, NULL, &rx_data_thread, &rx_data_driver_sockfd)))
     {
         printf("rx_data thread craation failed: %s\n", strerror(err));
         exit(-2);
     }
-
-    started = 1;
     
     return 0;
+}
+
+void rx_data_process_stop(void)
+{
+    pthread_mutex_lock(&rx_data_send_mutex);
+    rx_data_enable = 0;
+    rx_data_current_send_seq_pos = 0;
+    rx_data_next_send_seq_pos = 0;
+    memset((char *)rx_data_send_seq_array, 0, MAX_DATA_BUFFER_SIZE * sizeof(int));
+    memset((char *)rx_data_send_size_array, -1, MAX_DATA_BUFFER_SIZE * sizeof(int));
+    pthread_mutex_unlock(&rx_data_send_mutex);
 }
 
 void handle_data(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl)
@@ -748,6 +768,48 @@ void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USB
     }
 }
 
+int run = 1;
+
+static void int_handler(int signo)
+{
+    void *ret;
+
+    if (rx_data_threadId != -1)
+    {
+        if (pthread_cancel (rx_data_threadId) != 0)
+        {
+            printf("rx data cancel failed");
+        }
+        if (pthread_join (rx_data_threadId, &ret) != 0)
+        {
+            printf("rx data join failed");
+        }
+    }
+    if (main_threadId != -1)
+    {
+        if (pthread_cancel (main_threadId) != 0)
+        {
+            printf("main cancel failed");
+        }
+        if (pthread_join (main_threadId, &ret) != 0)
+        {
+            printf("main join failed");
+        }
+    }
+    if (tx_data_sockfd != -1)
+    {
+        close(tx_data_sockfd);
+    }
+    if (rx_data_sockfd != -1)
+    {
+        close(rx_data_sockfd);
+    }
+    if (rx_data_driver_sockfd != -1)
+    {
+        close(rx_data_driver_sockfd);
+    }
+}
+
 static void configure_usb_ethernet_address(void)
 {
     /* Get interface MAC address to filter */
@@ -796,6 +858,9 @@ int main(int argc, char **argv)
 {
     int32_t iOption = -1;
 
+    main_threadId = pthread_self();
+    signal(SIGINT, int_handler);
+
     /* Get options */
     do
     {
@@ -834,6 +899,6 @@ int main(int argc, char **argv)
    printf("Manufacturer: %s\n", manufacturer);
    printf("Network interface to bind: %s\n", if_name);
    configure_tx_data(); 
-   configure_rx_data(); 
+   configure_rx_data();
    usbip_run(&dev_dsc);
 }

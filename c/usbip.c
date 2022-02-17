@@ -590,7 +590,13 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
  
           } 
        }
+#ifdef SYNC_DATA_STOP
+       rx_data_process_stop();
+#endif
        close (sockfd);
+#ifdef REDUCE_LOG
+       printf("Restart ...\n");
+#endif
     };
 #ifndef LINUX
   WSACleanup ();
