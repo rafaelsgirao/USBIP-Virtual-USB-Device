@@ -367,7 +367,7 @@ static unsigned char mac_addr[ETH_ALEN] = {0};
 static unsigned char broadcast_mac_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 static int rx_data_current_send_seq_pos = 0;
 static int rx_data_next_send_seq_pos = 0;
-#define RX_DATA_SEND_SEQ_ARRAY_SIZE 100000
+#define RX_DATA_SEND_SEQ_ARRAY_SIZE 1000
 static int rx_data_send_seq_array[RX_DATA_SEND_SEQ_ARRAY_SIZE] = { [0 ... (RX_DATA_SEND_SEQ_ARRAY_SIZE - 1)] = -1};
 static int rx_data_send_size_array[RX_DATA_SEND_SEQ_ARRAY_SIZE] = {0};
 static int rx_data_enable = 1;
@@ -699,12 +699,17 @@ static int start_rx_data(int sockfd)
 
 void rx_data_process_stop(void)
 {
+    int i;
+
     pthread_mutex_lock(&rx_data_send_mutex);
     rx_data_enable = 0;
     rx_data_current_send_seq_pos = 0;
     rx_data_next_send_seq_pos = 0;
-    memset((char *)rx_data_send_seq_array, 0, MAX_DATA_BUFFER_SIZE * sizeof(int));
-    memset((char *)rx_data_send_size_array, -1, MAX_DATA_BUFFER_SIZE * sizeof(int));
+    for (i = 0; i < RX_DATA_SEND_SEQ_ARRAY_SIZE; i++)
+    {
+        rx_data_send_seq_array[i] = -1;
+        rx_data_send_size_array[i] = 0;
+    }
     pthread_mutex_unlock(&rx_data_send_mutex);
 }
 
