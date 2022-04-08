@@ -339,13 +339,20 @@ const unsigned char string_3[] = { //
 
 const unsigned char *strings[]={string_0, string_1, string_2, string_3};
 
+#define BD_ADDRESS_SIZE 6
+static unsigned char bd_addr[BD_ADDRESS_SIZE] = {0};
+
 char verbose_level = 0;
 unsigned short server_usbip_tcp_port = 3240;
 char usb_bus_port[MAX_USB_BUS_PORT_SIZE] = "1-1";
+static char usb_bd_address[] = "00:1A:7D:DA:71:13";
+#define MAX_MANUFACTURER_SIZE 32
+static char manufacturer[MAX_MANUFACTURER_SIZE] = "Trust";
 
 #define MAX_CONTROL_SIZE 16
 #define MAX_CONTROL_TAIL_SIZE 256
 #define DEFAULT_BT_CONTROL_INDEX 0
+#define BD_ADDRESS_BT_CONTROL_INDEX 3
 
 struct bt_control_st
 {
@@ -713,13 +720,27 @@ void handle_unlink(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl)
     scanning = 0;
 }
 
-static const char* const pcShortOptions = "hvp:b:";
+static void configure_usb_bd_address(void)
+{
+    int i;
+    /* Get interface MAC address to filter */
+    sscanf(usb_bd_address, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+        &bd_addr[0], &bd_addr[1], &bd_addr[2], &bd_addr[3], &bd_addr[4], &bd_addr[5]);
+
+    for(i = 0; i < BD_ADDRESS_SIZE; i++)
+    {
+        bt_control_array[BD_ADDRESS_BT_CONTROL_INDEX].tail[i] = bd_addr[BD_ADDRESS_SIZE - 1 -i];
+    }
+}
+
+static const char* const pcShortOptions = "hvp:b:a:";
 static const struct option stLongOptions[] =
 {
     {"help"                        , 0, 0, 'h'},
     {"verbose"                     , 0, 0, 'v'},
     {"port"                        , 1, 0, 'p'},
     {"bus"                         , 1, 0, 'b'},
+    {"address"                     , 1, 0, 'a'},
     {0, 0, 0, 0}
 };
 
@@ -731,6 +752,7 @@ static void help()
     printf("--verbose/-h                               Set verbose mode\n");
     printf("--port/-p <tcp port>                       Tcp port for usbip server\n");
     printf("--bus/-b <bus-port:...>                    Usb bus and port for emulation\n");
+    printf("--address/-a <xx:xx:xx:xx:xx:xx>           BD address for emulated device\n");
     printf("\n");
 }
 
@@ -756,6 +778,9 @@ int main(int argc, char **argv)
             case 'b':
                 strncpy(usb_bus_port, optarg, MAX_USB_BUS_PORT_SIZE-1);
                 break;
+            case 'a':
+                strncpy(usb_bd_address, optarg, BD_ADDRESS_SIZE * 3 - 1);
+                break;
             case -1:
                 break;
             default:
@@ -768,6 +793,9 @@ int main(int argc, char **argv)
     printf("server usbip tcp port: %d\n", server_usbip_tcp_port);
     printf("Bus-Port: %s\n", usb_bus_port);
     configure_usb_bus_port();
+    printf("BD address: %s\n", usb_bd_address);
+    configure_usb_bd_address();
+    printf("Manufacturer: %s\n", manufacturer);
     usbip_run(&dev_dsc);
 }
 
