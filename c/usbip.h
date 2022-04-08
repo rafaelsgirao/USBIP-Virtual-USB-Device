@@ -407,6 +407,14 @@ int devid;
 int direction;
 int ep;
 int status;
+#ifdef UNLINK_ANSWER
+int reserved0;
+int reserved1;
+int reserved2;
+int reserved3;
+int reserved4;
+int reserved5;
+#endif
 }USBIP_RET_UNLINK;
 
 
@@ -443,6 +451,9 @@ extern const char * configuration;
 extern const USB_INTERFACE_DESCRIPTOR *interfaces[];
 #endif
 extern const unsigned char *strings[];
+#if VERBOSE_LEVEL
+extern char verbose_level;
+#endif
 #ifdef CONFIGURABLE_USB_BUS_PORT
 #define USB_BUS_PORT_PATH "/sys/bus/usb/devices/%s"
 #define MAX_USB_BUS_PORT_SIZE 10
@@ -457,3 +468,9 @@ extern void rx_data_process_stop(void);
 
 void handle_data(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl);
 void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USBIP_RET_SUBMIT *usb_req);
+#ifdef UNLINK_ANSWER
+void handle_unlink(int sockfd, USBIP_RET_SUBMIT *usb_req, int bl);
+#endif
+#if defined(_DEBUG) || defined(VERBOSE_LEVEL)
+void print_msg(char* buff,int size,const char* desc, unsigned char send);
+#endif

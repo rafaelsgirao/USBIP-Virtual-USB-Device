@@ -375,6 +375,7 @@ static pthread_mutex_t rx_data_send_mutex;
 static int rx_data_ifidx = 0;
 #undef DEBUG_RX_DATA
 
+char verbose_level = 0;
 unsigned short server_usbip_tcp_port = 3240;
 char usb_bus_port[MAX_USB_BUS_PORT_SIZE] = "1-1";
 static char usb_ethernet_address[] = "88:00:66:99:5b:e9";
@@ -836,10 +837,11 @@ static void configure_usb_ethernet_address(void)
     string_3[24] = usb_ethernet_address[16];
 }
 
-static const char* const pcShortOptions = "hp:b:e:i:";
+static const char* const pcShortOptions = "hvp:b:e:i:";
 static const struct option stLongOptions[] =
 {
     {"help"                        , 0, 0, 'h'},
+    {"verbose"                     , 0, 0, 'v'},
     {"port"                        , 1, 0, 'p'},
     {"bus"                         , 1, 0, 'b'},
     {"ethernet_address"            , 1, 0, 'e'},
@@ -852,6 +854,7 @@ static void help()
     printf("help:\n");
     printf("[-h] [-p <tcp port>] [-b <bus-port:...>] [-e <ethernet address>] [-i <network_interface>]\n\n");
     printf("--help/-h                                  Show this help\n");
+    printf("--verbose/-h                               Set verbose mode\n");
     printf("--port/-p <tcp port>                       Tcp port for usbip server\n");
     printf("--bus/-b <bus-port:...>                    Usb bus and port for emulation\n");
     printf("--ethernet_address/-e <xx:xx:xx:xx:xx:xx>  Ethernet address for emulated device\n");
@@ -875,6 +878,9 @@ int main(int argc, char **argv)
             case 'h':
                 help();
                 return 0;
+            case 'v':
+                verbose_level ++;
+                break;
             case 'p':
                 server_usbip_tcp_port = atoi(optarg);
                 break;

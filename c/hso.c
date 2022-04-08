@@ -186,6 +186,7 @@ const USB_INTERFACE_DESCRIPTOR *interfaces[]={ &configuration_hso.dev_int0};
 
 const unsigned char *strings[]={string_0, string_1, string_2, string_3};
 
+char verbose_level = 0;
 unsigned short server_usbip_tcp_port = 3240;
 char usb_bus_port[MAX_USB_BUS_PORT_SIZE] = "1-1";
 
@@ -208,10 +209,11 @@ void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USB
     }
 }
 
-static const char* const pcShortOptions = "hp:b:";
+static const char* const pcShortOptions = "hvp:b:";
 static const struct option stLongOptions[] =
 {
     {"help"                        , 0, 0, 'h'},
+    {"verbose"                     , 0, 0, 'v'},
     {"port"                        , 1, 0, 'p'},
     {"bus"                         , 1, 0, 'b'},
     {0, 0, 0, 0}
@@ -222,6 +224,7 @@ static void help()
     printf("help:\n");
     printf("[-h] [-p <tcp port>] [-b <bus-port:...>] [-e <ethernet address>] [-i <network_interface>]\n\n");
     printf("--help/-h                                  Show this help\n");
+    printf("--verbose/-h                               Set verbose mode\n");
     printf("--port/-p <tcp port>                       Tcp port for usbip server\n");
     printf("--bus/-b <bus-port:...>                    Usb bus and port for emulation\n");
     printf("\n");
@@ -240,6 +243,9 @@ int main(int argc, char **argv)
             case 'h':
                 help();
                 return 0;
+            case 'v':
+                verbose_level ++;
+                break;
             case 'p':
                 server_usbip_tcp_port = atoi(optarg);
                 break;

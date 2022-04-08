@@ -43,7 +43,7 @@ void configure_usb_bus_port(void)
 }
 #endif
 
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(VERBOSE_LEVEL)
 void print_msg(char* buff,int size,const char* desc, unsigned char send)
 {
     int i,j;
@@ -197,7 +197,10 @@ void send_usb_req(int sockfd, USBIP_RET_SUBMIT * usb_req, char * data, unsigned 
     
         pack((int *)usb_req, sizeof(USBIP_RET_SUBMIT));
  
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(VERBOSE_LEVEL)
+#if VERBOSE_LEVEL
+        if (verbose_level > 1)
+#endif
         print_msg((char*)usb_req, sizeof(USBIP_RET_SUBMIT),"Req", 1);
 #endif
         if (send (sockfd, (char *)usb_req, sizeof(USBIP_RET_SUBMIT), 0) != sizeof(USBIP_RET_SUBMIT))
@@ -208,7 +211,10 @@ void send_usb_req(int sockfd, USBIP_RET_SUBMIT * usb_req, char * data, unsigned 
 
         if ((size > 0) && (data))
         {
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(VERBOSE_LEVEL)
+#if VERBOSE_LEVEL
+           if (verbose_level > 1)
+#endif
            print_msg((char*)data, size,"Req Data", 1);
 #endif
            if (send (sockfd, data, size, 0) != size)
@@ -222,9 +228,10 @@ void send_usb_req(int sockfd, USBIP_RET_SUBMIT * usb_req, char * data, unsigned 
 int handle_get_descriptor(int sockfd, StandardDeviceRequest * control_req, USBIP_RET_SUBMIT *usb_req)
 {
   int handled = 0;
-#ifndef REDUCE_LOG
-  printf("handle_get_descriptor %u [%u]\n",control_req->wValue1,control_req->wValue0 );
+#if VERBOSE_LEVEL
+  if (verbose_level)
 #endif
+  printf("handle_get_descriptor %u [%u]\n",control_req->wValue1,control_req->wValue0 );
   if(control_req->wValue1 == 0x1) // Device
   {
     printf("Device\n");  
@@ -258,12 +265,12 @@ int handle_get_descriptor(int sockfd, StandardDeviceRequest * control_req, USBIP
    }
    if(control_req->wValue1 == 0x6) // qualifier
    {
-#ifndef NO_QUALIFIER
      printf("Qualifier\n");  
      handled = 1;
+#ifndef NO_QUALIFIER
      send_usb_req(sockfd,usb_req, (char *) &dev_qua , control_req->wLength ,0);
 #else
-     printf("QUALIFIER NEEDS TO BE HANDLED!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+     send_usb_req(sockfd,usb_req, "" ,0 ,0);
 #endif
    }
    if(control_req->wValue1 == 0xA) // config status ???
@@ -295,9 +302,10 @@ int handle_get_descriptor(int sockfd, StandardDeviceRequest * control_req, USBIP
 int handle_set_configuration(int sockfd, StandardDeviceRequest * control_req, USBIP_RET_SUBMIT *usb_req)
 {
   int handled = 0;
-#ifndef REDUCE_LOG
-  printf("handle_set_configuration %u[%u]\n",control_req->wValue1,control_req->wValue0 );
+#if VERBOSE_LEVEL
+  if (verbose_level)
 #endif
+  printf("handle_set_configuration %u[%u]\n",control_req->wValue1,control_req->wValue0 );
   handled = 1;
   send_usb_req(sockfd, usb_req, "", 0, 0);        
   return handled;
@@ -310,9 +318,10 @@ void handle_usb_control(int sockfd, USBIP_RET_SUBMIT *usb_req)
         int handled = 0;
         StandardDeviceRequest control_req;
 #ifdef LINUX
-#ifndef REDUCE_LOG
-        printf("%016llX\n",usb_req->setup); 
+#if VERBOSE_LEVEL
+        if (verbose_level)
 #endif
+        printf("%016llX\n",usb_req->setup); 
 #else
         printf("%016I64X\n",usb_req->setup); 
 #endif
@@ -323,12 +332,17 @@ void handle_usb_control(int sockfd, USBIP_RET_SUBMIT *usb_req)
         control_req.wIndex0=        (usb_req->setup & 0x00000000FF000000)>>24; 
         control_req.wIndex1=        (usb_req->setup & 0x0000000000FF0000)>>16;
         control_req.wLength=   ntohs(usb_req->setup & 0x000000000000FFFF);  
-#ifndef REDUCE_LOG
+#if VERBOSE_LEVEL
+        if (verbose_level)
+        {
+#endif
         printf("  UC Request Type %u\n",control_req.bmRequestType);
         printf("  UC Request %u\n",control_req.bRequest);
         printf("  UC Value  %u[%u]\n",control_req.wValue1,control_req.wValue0);
         printf("  UCIndex  %u-%u\n",control_req.wIndex1,control_req.wIndex0);
         printf("  UC Length %u\n",control_req.wLength);
+#if VERBOSE_LEVEL
+        }
 #endif
         
         if(control_req.bmRequestType == 0x80) // Host Request
@@ -376,16 +390,18 @@ void handle_usb_request(int sockfd, USBIP_RET_SUBMIT *ret, int bl)
 {
    if(ret->ep == 0)
    {
-#ifndef REDUCE_LOG
-      printf("#control requests\n");
+#if VERBOSE_LEVEL
+      if (verbose_level)
 #endif
+      printf("#control requests\n");
       handle_usb_control(sockfd, ret);
    }
    else
    {
-#ifndef REDUCE_LOG
-      printf("#data requests\n");
+#if VERBOSE_LEVEL
+      if (verbose_level)
 #endif
+      printf("#data requests\n");
       handle_data(sockfd, ret, bl);
    }
 };
@@ -463,13 +479,21 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
                //printf ("receive error : %s \n", strerror (errno));
                break;
              };
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(VERBOSE_LEVEL)
+#if VERBOSE_LEVEL
+             if (verbose_level > 1)
+#endif
              print_msg((char *)&req, sizeof(OP_REQ_DEVLIST),"OP_REQ_DEVLIST", 0);
 #endif
              req.command=ntohs(req.command);
-#ifndef REDUCE_LOG
+#if VERBOSE_LEVEL
+             if (verbose_level)
+             {
+#endif
              printf("Header Packet\n");  
              printf("command: 0x%02X\n",req.command);
+#if VERBOSE_LEVEL
+             }
 #endif
              if(req.command == 0x8005)
              {
@@ -508,13 +532,19 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
                  printf ("receive error : %s \n", strerror (errno));
                  break;
                };
-#ifdef _DEBUG
-             print_msg(busid, 32,"Busid", 0);
+#if defined(_DEBUG) || defined(VERBOSE_LEVEL)
+#if VERBOSE_LEVEL
+               if (verbose_level > 1)
+#endif
+               print_msg(busid, 32,"Busid", 0);
 #endif
 
                handle_attach(dev_dsc,&rep);
 
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(VERBOSE_LEVEL)
+#if VERBOSE_LEVEL
+               if (verbose_level > 1)
+#endif
                print_msg((char*)&rep, sizeof(OP_REP_IMPORT),"Attach", 1);
 #endif
                if (send (sockfd, (char *)&rep, sizeof(OP_REP_IMPORT), 0) != sizeof(OP_REP_IMPORT))
@@ -527,9 +557,14 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
           }
           else
           {
-#ifndef REDUCE_LOG
+#if VERBOSE_LEVEL
+             if (verbose_level)
+             {
+#endif
              printf("------------------------------------------------\n"); 
              printf("handles requests\n");
+#if VERBOSE_LEVEL
+             }
 #endif
              USBIP_CMD_SUBMIT cmd;
              USBIP_RET_SUBMIT usb_req;
@@ -538,11 +573,17 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
                printf ("receive error : %s \n", strerror (errno));
                break;
              };
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(VERBOSE_LEVEL)
+#if VERBOSE_LEVEL
+             if (verbose_level > 1)
+#endif
              print_msg((char *)&cmd, sizeof(USBIP_CMD_SUBMIT),"USBIP_CMD_SUBMIT", 0);
 #endif
              unpack((int *)&cmd,sizeof(USBIP_CMD_SUBMIT));               
-#ifndef REDUCE_LOG
+#if VERBOSE_LEVEL
+             if (verbose_level)
+             {
+#endif
              printf("usbip cmd %u\n",cmd.command);
              printf("usbip seqnum %u\n",cmd.seqnum);
              printf("usbip devid %u\n",cmd.devid);
@@ -557,6 +598,8 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
              printf("usbip setup %I64u\n",cmd.setup);
 #endif
              printf("usbip buffer length  %u\n",cmd.transfer_buffer_length);
+#if VERBOSE_LEVEL
+             }
 #endif
              usb_req.command=0;
              usb_req.seqnum=cmd.seqnum;
@@ -565,7 +608,11 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
              usb_req.ep=cmd.ep;
              usb_req.status=0;
              usb_req.actual_length=0;
+#ifdef KEEP_START_FRAME
+             usb_req.start_frame = cmd.start_frame;
+#else
              usb_req.start_frame=0;
+#endif
              usb_req.number_of_packets=0;
              usb_req.error_count=0;
              usb_req.setup=cmd.setup;
@@ -575,7 +622,11 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
 
              if(cmd.command == 2) //unlink urb
              {
+#if UNLINK_ANSWER
+                handle_unlink(sockfd, &usb_req, cmd.transfer_buffer_length);
+#else
                 printf("####################### Unlink URB %u  (not working!!!)\n",cmd.transfer_flags);
+#endif
              }
 
              if(cmd.command > 2)
@@ -594,7 +645,7 @@ usbip_run (const USB_DEVICE_DESCRIPTOR *dev_dsc)                                
        rx_data_process_stop();
 #endif
        close (sockfd);
-#ifdef REDUCE_LOG
+#if VERBOSE_LEVEL
        printf("Restart ...\n");
 #endif
     };
