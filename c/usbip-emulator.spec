@@ -22,16 +22,16 @@ Generated emulators use the usbip kernel feature.
 make
 
 %install
-mkdir -p %{buildroot}/usr/local/bin/
-install -m 755 hso %{buildroot}/usr/local/bin/hso
-install -m 755 cdc-ether %{buildroot}/usr/local/bin/cdc-ether
-install -m 755 bt %{buildroot}/usr/local/bin/bt
+mkdir -p %{buildroot}/usr/sbin/
+install -m 755 hso %{buildroot}/usr/sbin/hso
+install -m 755 cdc-ether %{buildroot}/usr/sbin/cdc-ether
+install -m 755 bt %{buildroot}/usr/sbin/bt
 
 
 %files
-/usr/local/bin/hso
-/usr/local/bin/cdc-ether
-/usr/local/bin/bt
+/usr/sbin/hso
+/usr/sbin/cdc-ether
+/usr/sbin/bt
 
 %changelog
 * Tue Apr 12 2022 Jose Ignacio Tornos Martinez <jtornosm@redhat.co
