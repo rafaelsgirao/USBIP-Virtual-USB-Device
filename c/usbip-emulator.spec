@@ -25,12 +25,17 @@ make
 mkdir -p %{buildroot}/usr/local/bin/
 install -m 755 hso %{buildroot}/usr/local/bin/hso
 install -m 755 cdc-ether %{buildroot}/usr/local/bin/cdc-ether
+install -m 755 bt %{buildroot}/usr/local/bin/bt
 
 
 %files
-/usr/local/bin/cdc-ether
 /usr/local/bin/hso
+/usr/local/bin/cdc-ether
+/usr/local/bin/bt
 
 %changelog
-* Mon Feb 28 2022 José Ignacio Tornos Martínez <jtornosm@redhat.com>
+* Tue Apr 12 2022 Jose Ignacio Tornos Martinez <jtornosm@redhat.co
+- Add bt support
+
+* Mon Feb 28 2022 Jose Ignacio Tornos Martinez <jtornosm@redhat.com>
 - Initial version of the package

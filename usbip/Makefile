@@ -1,12 +1,13 @@
-KERNEL_REPO?=git@gitlab.com:jtornosm/rhel-8.git
+KERNEL_REPO?=git@gitlab.com:redhat/rhel/src/kernel/rhel-8.git
 KERNEL_REPO_BRANCH?=main
 KERNEL_REPO_DIR:=$(shell basename $(KERNEL_REPO) | cut -d '.' -f 1)
 USBIP_PATH:=tools/usb/usbip
 USBIP_DIR?=$(shell basename $(USBIP_PATH))
 USBIP_SRC_TMP?=/tmp/usbip
 
-TAR_PACKAGE_NAME:=$(shell grep "^Name:" .spec | cut -d ":" -f 2 | tr -d ' ')
-TAR_PACKAGE_VERSION:=$(shell grep "^Version:" .spec | cut -d ":" -f 2 | tr -d ' ')
+SPEC_FILE=usbip.spec
+TAR_PACKAGE_NAME:=$(shell grep "^Name:" ${SPEC_FILE} | cut -d ":" -f 2 | tr -d ' ')
+TAR_PACKAGE_VERSION:=$(shell grep "^Version:" ${SPEC_FILE} | cut -d ":" -f 2 | tr -d ' ')
 
 SHELL := /bin/bash
 
@@ -22,12 +23,12 @@ download:
 		git sparse-checkout set ${USBIP_PATH}; \
 		popd; \
 		cp -r ${USBIP_SRC_TMP}/${KERNEL_REPO_DIR}/${USBIP_PATH} .; \
-	fi; \
+	fi;
 
 compile:
 	cd ${USBIP_DIR}; \
 	./autogen.sh; \
-	./configure; \
+	./configure --prefix=/usr/; \
 	make
 
 install:
@@ -38,18 +39,20 @@ rpm: download
 	mkdir -p ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 	cp -r ${USBIP_DIR} ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 	cp Makefile ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
-	cp .spec ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
+	cp ${SPEC_FILE} ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 	tar -zcv ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION} -f ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz
 	rm -rf ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 	mkdir -p ~/rpmbuild/SOURCES
 	mv ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz ~/rpmbuild/SOURCES             
-	rpmbuild -bb .spec
+	rpmbuild -bb ${SPEC_FILE}
 
 clean:
-	rm -f ~/rpmbuild/SOURCES/${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz
-	rm -rf /home/jtornosm/rpmbuild/BUILD/${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
-	cd ${USBIP_DIR}; \
-	./cleanup.sh 
+	if [ -d ${USBIP_DIR} ];then \
+		rm -f ~/rpmbuild/SOURCES/${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz; \
+		rm -rf /home/jtornosm/rpmbuild/BUILD/${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}; \
+		cd ${USBIP_DIR}; \
+		./cleanup.sh; \
+	fi;
 
 mrproper:
 	rm -rf ${USBIP_SRC_TMP}

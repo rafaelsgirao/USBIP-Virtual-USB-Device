@@ -8,8 +8,9 @@ CDC_ETHER_CFLAGS:=${CFLAGS} -DMULTIPLE_CONFIGURATIONS -DNO_DEVICE_LIST -DNO_QUAL
 BT_CFLAGS:=${CFLAGS} -DMULTIPLE_CONFIGURATIONS -DNO_DEVICE_LIST -DNO_QUALIFIER -DCONFIGURABLE_SERVER_USBIP_TCP_PORT -DCONFIGURABLE_USB_BUS_PORT -DVERBOSE_LEVEL -DUNLINK_ANSWER -DKEEP_START_FRAME
 PROGS:= hid-mouse hid-keyboard cdc-acm hso cdc-ether bt
 
-TAR_PACKAGE_NAME:=$(shell grep "^Name:" .spec | cut -d ":" -f 2 | tr -d ' ')
-TAR_PACKAGE_VERSION:=$(shell grep "^Version:" .spec | cut -d ":" -f 2 | tr -d ' ')
+SPEC_FILE=usbip-emulator.spec
+TAR_PACKAGE_NAME:=$(shell grep "^Name:" ${SPEC_FILE} | cut -d ":" -f 2 | tr -d ' ')
+TAR_PACKAGE_VERSION:=$(shell grep "^Version:" ${SPEC_FILE} | cut -d ":" -f 2 | tr -d ' ')
 
 all:	${PROGS}
 
@@ -44,7 +45,7 @@ rpm:
 		rm -rf ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 		mkdir -p ~/rpmbuild/SOURCES
 		mv ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz ~/rpmbuild/SOURCES
-		rpmbuild -bb .spec
+		rpmbuild -bb ${SPEC_FILE}
 
 clean:
 		rm -f ~/rpmbuild/SOURCES/${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz

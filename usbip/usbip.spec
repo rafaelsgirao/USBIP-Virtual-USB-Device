@@ -27,10 +27,10 @@ make compile
 %make_install
 
 %files
-/usr/local/sbin/*
-/usr/local/lib/*.so.*
-/usr/local/share/man/man8/*
+/usr/sbin/*
+/usr/lib/*.so.*
+/usr/share/man/man8/*
 
 %changelog
-* Mon Feb 28 2022 José Ignacio Tornos Martínez <jtornosm@redhat.com>
+* Mon Feb 28 2022 Jose Ignacio Tornos Martinez <jtornosm@redhat.com>
 - Initial version of the package
