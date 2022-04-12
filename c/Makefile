@@ -1,5 +1,5 @@
 CC:=gcc
-CFLAGS:= -Wall -DLINUX
+CFLAGS:= -Wall -DLINUX -Wno-address-of-packed-member
 ifeq ($(DEBUG),YES)
 CFLAGS+= -g -O
 endif
