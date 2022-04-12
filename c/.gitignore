@@ -1,0 +1,7 @@
+*.o
+cdc-acm
+hid-keyboard
+hid-mouse
+hso
+cdc-ether
+bt
