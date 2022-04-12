@@ -35,7 +35,7 @@ install:
 	cd ${USBIP_DIR}; \
 	make install
 
-rpm: download
+src: download
 	mkdir -p ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 	cp -r ${USBIP_DIR} ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 	cp Makefile ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
@@ -44,7 +44,12 @@ rpm: download
 	rm -rf ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 	mkdir -p ~/rpmbuild/SOURCES
 	mv ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz ~/rpmbuild/SOURCES             
+
+rpm: src
 	rpmbuild -bb ${SPEC_FILE}
+
+srpm: src
+	rpmbuild -bs ${SPEC_FILE}
 
 clean:
 	if [ -d ${USBIP_DIR} ];then \

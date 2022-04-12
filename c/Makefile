@@ -38,14 +38,19 @@ bt:	usbip.c bt.c
 		${CC} ${BT_CFLAGS} usbip.c -c
 		${CC} ${BT_CFLAGS} usbip.o bt.c -o bt
 
-rpm:
+src:
 		mkdir -p ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 		cp *.c *.h Makefile ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 		tar -zcv ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION} -f ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz
 		rm -rf ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}
 		mkdir -p ~/rpmbuild/SOURCES
 		mv ${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz ~/rpmbuild/SOURCES
+
+rpm: src
 		rpmbuild -bb ${SPEC_FILE}
+
+srpm: src
+		rpmbuild -bs ${SPEC_FILE}
 
 clean:
 		rm -f ~/rpmbuild/SOURCES/${TAR_PACKAGE_NAME}-${TAR_PACKAGE_VERSION}.src.tar.gz
