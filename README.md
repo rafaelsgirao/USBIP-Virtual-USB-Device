@@ -1,8 +1,7 @@
 USBIP hardware emulation (Virtual USB device) 
 =============
 
-Tested with Linux Kernel 4.18<br>
-Add suport to hso devices (c code).
+Generate USB Device Emulators using USB/IP.
 
 Compile Linux Kernel with:<br>
 CONFIG_USBIP_CORE=m<br>
@@ -10,12 +9,12 @@ CONFIG_USBIP_VHCI_HCD=m<br>
 
 Compile and install usbip tool from Linux Kernel tree (tools/usb/usbip).
 
-Compile hso emulation tool from this repo:<br>
+Compile usb emulator tools from this repo:<br>
 $ cd c<br>
 $ make<br>
 $
 
-From one terminal:<br>
+From one terminal ((hso device as an example):<br>
 $ ./hso<br> 
 hso started....
 
@@ -49,4 +48,4 @@ $ lsusb<br>
 ...<br>
 $
 
-Device control with basic configuration for a correct initialization is completely emulated, data handling needs to be improved.
+For more information and examples visit my blog: https://jtornosm.fedorapeople.org/usb_device_emulation
