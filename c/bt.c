@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <getopt.h>
 
 #include "usbip.h"
@@ -740,6 +741,16 @@ static void configure_usb_bd_address(void)
     }
 }
 
+static void int_handler(int signo)
+{
+    if (signo == SIGTERM)
+    {
+        printf("TERM\n");
+    }
+    fflush(stdout);
+    exit(0);
+}
+
 static const char* const pcShortOptions = "hvp:b:a:";
 static const struct option stLongOptions[] =
 {
@@ -766,6 +777,9 @@ static void help()
 int main(int argc, char **argv)
 {
     int32_t iOption = -1;
+
+    signal(SIGINT, int_handler);
+    signal(SIGTERM, int_handler);
 
     /* Get options */
     do

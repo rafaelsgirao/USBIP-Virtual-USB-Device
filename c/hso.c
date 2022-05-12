@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <getopt.h>
 
 #include "usbip.h"
@@ -83,7 +84,7 @@ typedef struct __attribute__ ((__packed__)) _CONFIG_HSO
  USB_ENDPOINT_DESCRIPTOR dev_ep2;
 } CONFIG_HSO;
 
-const CONFIG_HSO  configuration_hso={{
+CONFIG_HSO  configuration_hso={{
     /* Configuration Descriptor */
     0x09,//sizeof(USB_CFG_DSC),    // Size of this descriptor in bytes
     USB_DESCRIPTOR_CONFIGURATION,                // CONFIGURATION descriptor type
@@ -209,13 +210,29 @@ void handle_unknown_control(int sockfd, StandardDeviceRequest * control_req, USB
     }
 }
 
-static const char* const pcShortOptions = "hvp:b:";
+static void introduce_error()
+{
+    configuration_hso.dev_ep0.bmAttributes = 0x03;
+}
+
+static void int_handler(int signo)
+{
+    if (signo == SIGTERM)
+    {
+        printf("TERM\n");
+    }
+    fflush(stdout);
+    exit(0);
+}
+
+static const char* const pcShortOptions = "hvp:b:e";
 static const struct option stLongOptions[] =
 {
     {"help"                        , 0, 0, 'h'},
     {"verbose"                     , 0, 0, 'v'},
     {"port"                        , 1, 0, 'p'},
     {"bus"                         , 1, 0, 'b'},
+    {"error"                       , 0, 0, 'e'},
     {0, 0, 0, 0}
 };
 
@@ -227,12 +244,16 @@ static void help()
     printf("--verbose/-h                               Set verbose mode\n");
     printf("--port/-p <tcp port>                       Tcp port for usbip server\n");
     printf("--bus/-b <bus-port:...>                    Usb bus and port for emulation\n");
+    printf("--error/-e>                                Introduce error to check driver behavior\n");
     printf("\n");
 }
 
 int main(int argc, char **argv)
 {
     int32_t iOption = -1;
+
+    signal(SIGINT, int_handler);
+    signal(SIGTERM, int_handler);
 
     /* Get options */
     do
@@ -251,6 +272,9 @@ int main(int argc, char **argv)
                 break;
             case 'b':
                 strncpy(usb_bus_port, optarg, MAX_USB_BUS_PORT_SIZE-1);
+                break;
+            case 'e':
+                introduce_error();
                 break;
             case -1:
                 break;

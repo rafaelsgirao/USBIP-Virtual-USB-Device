@@ -780,6 +780,11 @@ static void int_handler(int signo)
 {
     void *ret;
 
+    if (signo == SIGTERM)
+    {
+        printf("TERM\n");
+    }
+
     if (rx_data_threadId != -1)
     {
         if (pthread_cancel (rx_data_threadId) != 0)
@@ -814,6 +819,8 @@ static void int_handler(int signo)
     {
         close(rx_data_driver_sockfd);
     }
+
+    fflush(stdout);
 }
 
 static void configure_usb_ethernet_address(void)
@@ -868,6 +875,7 @@ int main(int argc, char **argv)
 
     main_threadId = pthread_self();
     signal(SIGINT, int_handler);
+    signal(SIGTERM, int_handler);
 
     /* Get options */
     do

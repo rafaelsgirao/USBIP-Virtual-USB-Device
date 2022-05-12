@@ -1,0 +1,9 @@
+Install Robot Framework in local machine:
+$ sudo dnf install python3-pip
+$ sudo pip3 install robotframework
+$ sudo pip3 install robotframework-sshlibrary
+
+Tests can be run in this way:
+$ robot test_<device>.robot
+
+NOTE: Check if extra configuration is nedeed (i.e. cdc-ether)
